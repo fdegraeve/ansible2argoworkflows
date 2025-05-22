@@ -1,0 +1,12 @@
+---
+- name: Print a message
+  debug:
+    msg: "Hello from Ansible in Argo Workflow!"
+
+- name: Show contents of the example file
+  shell: cat {{ role_path }}/files/example_file.txt
+  register: file_output
+
+- name: Display file contents
+  debug:
+    var: file_output.stdout

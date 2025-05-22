@@ -1,0 +1,6 @@
+---
+- name: Example playbook
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - example

@@ -1,0 +1,135 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ansible-from-git-template
+spec:
+  entrypoint: main
+  volumeClaimTemplates:
+    - metadata:
+        name: shared-workspace
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+  arguments:
+    parameters:
+      - name: git-repo-url
+        value: https://github.com/ton-org/ansible-playbook-repo.git
+      - name: playbook-path
+        value: playbook.yml
+      - name: inventory-path
+        value: inventory.ini
+
+  templates:
+    - name: main
+      steps:
+        - - name: check-repo
+            template: check-repo
+            arguments:
+              parameters:
+                - name: git-repo-url
+                  value: "{{workflow.parameters.git-repo-url}}"
+
+        - - name: git-clone
+            template: git-clone
+            arguments:
+              parameters:
+                - name: git-repo-url
+                  value: "{{workflow.parameters.git-repo-url}}"
+
+        - - name: run-ansible
+            template: run-ansible
+            arguments:
+              parameters:
+                - name: playbook-path
+                  value: "{{workflow.parameters.playbook-path}}"
+                - name: inventory-path
+                  value: "{{workflow.parameters.inventory-path}}"
+
+        - - name: show-logs
+            template: show-logs
+
+        - - name: cleanup
+            template: cleanup
+
+    - name: check-repo
+      inputs:
+        parameters:
+          - name: git-repo-url
+      script:
+        image: python:3.11
+        command: [python]
+        source: |
+          import re, sys
+
+          repo = "{{inputs.parameters.git-repo-url}}"
+
+          allowed_patterns = [
+              r"^https://github\.com/adeo/.*\.git$",
+              r"^https://github\.com/fdegraeve/.*\.git$"
+          ]
+
+          for pattern in allowed_patterns:
+              if re.match(pattern, repo):
+                  print(f"✅ Repo URL '{repo}' matches pattern: {pattern}")
+                  sys.exit(0)
+
+          print(f"❌ Repo URL '{repo}' does not match any allowed patterns.")
+          sys.exit(1)
+
+    - name: git-clone
+      inputs:
+        parameters:
+          - name: git-repo-url
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |
+            git clone {{inputs.parameters.git-repo-url}} /shared/playbook
+        volumeMounts:
+          - name: shared-workspace
+            mountPath: /shared
+
+    - name: run-ansible
+      inputs:
+        parameters:
+          - name: playbook-path
+          - name: inventory-path
+      container:
+        image: willhallonline/ansible:latest
+        command: [sh, -c]
+        args:
+          - |
+            cd /shared/playbook &&
+            ansible-playbook -i {{inputs.parameters.inventory-path}} {{inputs.parameters.playbook-path}} | tee /shared/ansible.log
+        volumeMounts:
+          - name: shared-workspace
+            mountPath: /shared
+
+    - name: show-logs
+      container:
+        image: alpine
+        command: [sh, -c]
+        args:
+          - |
+            echo "Demonstration step: can send logs to a bucket for archive/audit, etc..."
+            echo "--- Ansible logs ---"
+            cat /shared/ansible.log
+        volumeMounts:
+          - name: shared-workspace
+            mountPath: /shared
+
+    - name: cleanup
+      container:
+        image: alpine
+        command: [sh, -c]
+        args:
+          - |
+            echo "Cleaning up shared volume..."
+            rm -rf /shared/playbook /shared/ansible.log
+        volumeMounts:
+          - name: shared-workspace
+            mountPath: /shared
