@@ -48,8 +48,8 @@ spec:
                 - name: inventory-path
                   value: "{{workflow.parameters.inventory-path}}"
 
-        - - name: show-logs
-            template: show-logs
+        - - name: process-logs
+            template: process-logs
 
         - - name: cleanup
             template: cleanup
@@ -109,7 +109,7 @@ spec:
           - name: shared-workspace
             mountPath: /shared
 
-    - name: show-logs
+    - name: process-logs
       container:
         image: alpine
         command: [sh, -c]
