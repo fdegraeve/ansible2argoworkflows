@@ -25,8 +25,8 @@ spec:
   templates:
     - name: main
       steps:
-        - - name: check-repo
-            template: check-repo
+        - - name: check-repo-compliance
+            template: check-repo-compliance
             arguments:
               parameters:
                 - name: git-repo-url
@@ -54,7 +54,7 @@ spec:
         - - name: cleanup
             template: cleanup
 
-    - name: check-repo
+    - name: check-repo-compliance
       inputs:
         parameters:
           - name: git-repo-url
