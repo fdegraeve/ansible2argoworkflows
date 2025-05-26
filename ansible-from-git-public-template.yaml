@@ -21,6 +21,13 @@ spec:
         value: playbook.yml
       - name: inventory-path
         value: inventory.ini
+      - name: ansible-version
+        enum:
+          - "2.15"
+          - "2.16"
+          - "2.17"
+          - "2.18"
+        value: "2.18"
 
   templates:
     - name: main
@@ -47,6 +54,8 @@ spec:
                   value: "{{workflow.parameters.playbook-path}}"
                 - name: inventory-path
                   value: "{{workflow.parameters.inventory-path}}"
+                - name: ansible-version
+                  value: "{{workflow.parameters.ansible-version}}"
 
         - - name: process-logs
             template: process-logs
@@ -98,11 +107,15 @@ spec:
         parameters:
           - name: playbook-path
           - name: inventory-path
+          - name: ansible-version
       container:
-        image: willhallonline/ansible:latest
+        image: willhallonline/ansible:{{inputs.parameters.ansible-version}}-alpine-3.19
         command: [sh, -c]
         args:
           - |
+            echo "Running Ansible playbook..."
+            echo "Using Ansible version: {{inputs.parameters.ansible-version}}"
+            ansible --version &&
             cd /shared/playbook &&
             ansible-playbook -i {{inputs.parameters.inventory-path}} {{inputs.parameters.playbook-path}} | tee /shared/ansible.log
         volumeMounts:
